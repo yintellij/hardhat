@@ -463,6 +463,10 @@ export type RunTaskFunction = (
   taskArguments?: TaskArguments
 ) => Promise<any>;
 
+export interface Artifacts {
+  filed: number;
+}
+
 export interface HardhatRuntimeEnvironment {
   readonly config: ResolvedHardhatConfig;
   readonly hardhatArguments: HardhatArguments;
@@ -471,4 +475,5 @@ export interface HardhatRuntimeEnvironment {
   readonly network: Network;
   // TODO-HH: Remove this deprectaed field
   readonly ethereum: EthereumProvider; // DEPRECATED: Use network.provider
+  readonly a: Artifacts;
 }

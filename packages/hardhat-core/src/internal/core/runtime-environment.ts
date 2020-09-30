@@ -1,6 +1,7 @@
 import debug from "debug";
 
 import {
+  Artifacts,
   EnvironmentExtender,
   EthereumProvider,
   ExperimentalHardhatNetworkMessageTraceHook,
@@ -25,6 +26,10 @@ import { OverriddenTaskDefinition } from "./tasks/task-definitions";
 
 const log = debug("hardhat:core:hre");
 
+class ArtifactImpl implements Artifacts {
+  public readonly filed = 123;
+}
+
 export class Environment implements HardhatRuntimeEnvironment {
   private static readonly _BLACKLISTED_PROPERTIES: string[] = [
     "injectToGlobal",
@@ -37,6 +42,8 @@ export class Environment implements HardhatRuntimeEnvironment {
   public ethereum: EthereumProvider;
 
   public network: Network;
+
+  public readonly a: Artifacts;
 
   private readonly _extenders: EnvironmentExtender[];
 
@@ -74,6 +81,7 @@ export class Environment implements HardhatRuntimeEnvironment {
       });
     }
 
+    this.a = new ArtifactImpl();
     const provider = lazyObject(() => {
       log(`Creating provider for network ${networkName}`);
       return createProvider(

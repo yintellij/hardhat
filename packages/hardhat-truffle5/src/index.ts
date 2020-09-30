@@ -34,6 +34,7 @@ export default function () {
   let accounts: string[] | undefined;
 
   extendEnvironment((env) => {
+    env.a.field2 = 0;
     env.artifacts = lazyObject(() => {
       const networkConfig = env.network.config;
 
