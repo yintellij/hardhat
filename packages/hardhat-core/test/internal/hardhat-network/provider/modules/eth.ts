@@ -1720,9 +1720,43 @@ describe("Eth module", function () {
       });
 
       describe("eth_getStorageAt", async function () {
-        describe("Imitating Ganache", function () {
-          describe("When a slot has not been written into", function () {
-            it("Should return `0x0`, despite it not making any sense at all", async function () {
+        describe("When a slot has not been written into", function () {
+          it("Should return `0x0`, despite it not making any sense at all", async function () {
+            const exampleContract = await deployContract(
+              this.provider,
+              `0x${EXAMPLE_CONTRACT.bytecode.object}`
+            );
+
+            assert.strictEqual(
+              await this.provider.send("eth_getStorageAt", [
+                exampleContract,
+                numberToRpcQuantity(3),
+              ]),
+              "0x0000000000000000000000000000000000000000000000000000000000000000"
+            );
+
+            assert.strictEqual(
+              await this.provider.send("eth_getStorageAt", [
+                exampleContract,
+                numberToRpcQuantity(4),
+              ]),
+              "0x0000000000000000000000000000000000000000000000000000000000000000"
+            );
+
+            assert.strictEqual(
+              await this.provider.send("eth_getStorageAt", [
+                DEFAULT_ACCOUNTS_ADDRESSES[0],
+                numberToRpcQuantity(0),
+              ]),
+              "0x0000000000000000000000000000000000000000000000000000000000000000"
+            );
+          });
+        });
+
+        describe("When a slot has been written into", function () {
+          describe("When 32 bytes where written", function () {
+            it("Should return a 32-byte DATA string", async function () {
+              const firstBlock = await getFirstBlock();
               const exampleContract = await deployContract(
                 this.provider,
                 `0x${EXAMPLE_CONTRACT.bytecode.object}`
@@ -1731,124 +1765,85 @@ describe("Eth module", function () {
               assert.strictEqual(
                 await this.provider.send("eth_getStorageAt", [
                   exampleContract,
-                  numberToRpcQuantity(3),
+                  numberToRpcQuantity(2),
+                  numberToRpcQuantity(firstBlock),
                 ]),
-                "0x0"
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
               );
 
               assert.strictEqual(
                 await this.provider.send("eth_getStorageAt", [
                   exampleContract,
-                  numberToRpcQuantity(4),
+                  numberToRpcQuantity(2),
                 ]),
-                "0x0"
-              );
-
-              assert.strictEqual(
-                await this.provider.send("eth_getStorageAt", [
-                  DEFAULT_ACCOUNTS_ADDRESSES[0],
-                  numberToRpcQuantity(0),
-                ]),
-                "0x0"
+                "0x1234567890123456789012345678901234567890123456789012345678901234"
               );
             });
           });
 
-          describe("When a slot has been written into", function () {
-            describe("When 32 bytes where written", function () {
-              it("Should return a 32-byte DATA string", async function () {
-                const firstBlock = await getFirstBlock();
-                const exampleContract = await deployContract(
-                  this.provider,
-                  `0x${EXAMPLE_CONTRACT.bytecode.object}`
-                );
+          describe("When less than 32 bytes where written", function () {
+            it("Should return a DATA string left-padded to 32 bytes", async function () {
+              const firstBlock = await getFirstBlock();
+              const exampleContract = await deployContract(
+                this.provider,
+                `0x${EXAMPLE_CONTRACT.bytecode.object}`
+              );
 
-                assert.strictEqual(
-                  await this.provider.send("eth_getStorageAt", [
-                    exampleContract,
-                    numberToRpcQuantity(2),
-                    numberToRpcQuantity(firstBlock),
-                  ]),
-                  "0x0"
-                );
+              let newState =
+                "000000000000000000000000000000000000000000000000000000000000007b";
 
-                assert.strictEqual(
-                  await this.provider.send("eth_getStorageAt", [
-                    exampleContract,
-                    numberToRpcQuantity(2),
-                  ]),
-                  "0x1234567890123456789012345678901234567890123456789012345678901234"
-                );
-              });
-            });
+              await this.provider.send("eth_sendTransaction", [
+                {
+                  to: exampleContract,
+                  from: DEFAULT_ACCOUNTS_ADDRESSES[0],
+                  data: EXAMPLE_CONTRACT.selectors.modifiesState + newState,
+                },
+              ]);
 
-            describe("When less than 32 bytes where written", function () {
-              it("Should return a DATA string with the same amount bytes that have been written", async function () {
-                const firstBlock = await getFirstBlock();
-                const exampleContract = await deployContract(
-                  this.provider,
-                  `0x${EXAMPLE_CONTRACT.bytecode.object}`
-                );
+              assert.strictEqual(
+                await this.provider.send("eth_getStorageAt", [
+                  exampleContract,
+                  numberToRpcQuantity(0),
+                  numberToRpcQuantity(firstBlock + 1),
+                ]),
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
+              );
 
-                // We return as the EthereumJS VM stores it. This has been checked
-                // against remix
+              assert.strictEqual(
+                await this.provider.send("eth_getStorageAt", [
+                  exampleContract,
+                  numberToRpcQuantity(0),
+                ]),
+                "0x000000000000000000000000000000000000000000000000000000000000007b"
+              );
 
-                let newState =
-                  "000000000000000000000000000000000000000000000000000000000000007b";
+              newState =
+                "000000000000000000000000000000000000000000000000000000000000007c";
 
-                await this.provider.send("eth_sendTransaction", [
-                  {
-                    to: exampleContract,
-                    from: DEFAULT_ACCOUNTS_ADDRESSES[0],
-                    data: EXAMPLE_CONTRACT.selectors.modifiesState + newState,
-                  },
-                ]);
+              await this.provider.send("eth_sendTransaction", [
+                {
+                  to: exampleContract,
+                  from: DEFAULT_ACCOUNTS_ADDRESSES[0],
+                  data: EXAMPLE_CONTRACT.selectors.modifiesState + newState,
+                },
+              ]);
 
-                assert.strictEqual(
-                  await this.provider.send("eth_getStorageAt", [
-                    exampleContract,
-                    numberToRpcQuantity(0),
-                    numberToRpcQuantity(firstBlock + 1),
-                  ]),
-                  "0x0"
-                );
+              assert.strictEqual(
+                await this.provider.send("eth_getStorageAt", [
+                  exampleContract,
+                  numberToRpcQuantity(0),
+                  numberToRpcQuantity(firstBlock + 2),
+                ]),
+                "0x000000000000000000000000000000000000000000000000000000000000007b"
+              );
 
-                assert.strictEqual(
-                  await this.provider.send("eth_getStorageAt", [
-                    exampleContract,
-                    numberToRpcQuantity(0),
-                  ]),
-                  "0x7b"
-                );
-
-                newState =
-                  "000000000000000000000000000000000000000000000000000000000000007c";
-
-                await this.provider.send("eth_sendTransaction", [
-                  {
-                    to: exampleContract,
-                    from: DEFAULT_ACCOUNTS_ADDRESSES[0],
-                    data: EXAMPLE_CONTRACT.selectors.modifiesState + newState,
-                  },
-                ]);
-
-                assert.strictEqual(
-                  await this.provider.send("eth_getStorageAt", [
-                    exampleContract,
-                    numberToRpcQuantity(0),
-                    numberToRpcQuantity(firstBlock + 2),
-                  ]),
-                  "0x7b"
-                );
-
-                assert.strictEqual(
-                  await this.provider.send("eth_getStorageAt", [
-                    exampleContract,
-                    numberToRpcQuantity(0),
-                  ]),
-                  "0x7c"
-                );
-              });
+              assert.strictEqual(
+                await this.provider.send("eth_getStorageAt", [
+                  exampleContract,
+                  numberToRpcQuantity(0),
+                ]),
+                "0x000000000000000000000000000000000000000000000000000000000000007c"
+              );
             });
           });
         });
