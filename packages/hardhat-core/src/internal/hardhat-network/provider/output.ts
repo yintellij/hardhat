@@ -82,7 +82,8 @@ export interface RpcStructLog {
   memory?: string[];
   stack?: string[];
   storage?: Record<string, string>;
-  memSize: number;
+  memSize?: number;
+  error?: object;
 }
 
 export interface RpcDebugTraceOutput {
