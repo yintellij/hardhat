@@ -1,13 +1,9 @@
 import fs from "fs";
 import fsExtra from "fs-extra";
-import HttpsProxyAgent from "https-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import type { RequestInit as FetchOptions } from "node-fetch";
 import path from "path";
 import util from "util";
-
-interface FetchOptions {
-  timeout: number;
-  agent?: undefined | HttpsProxyAgent.HttpsProxyAgent;
-}
 
 export async function download(
   url: string,
@@ -19,24 +15,20 @@ export async function download(
   const streamPipeline = util.promisify(pipeline);
   const fetchOptions: FetchOptions = {
     timeout: timeoutMillis,
-    agent: undefined,
   };
 
-  // Check if Proxy is set https
-  if ("HTTPS_PROXY" in process.env) {
-    // Create the proxy from the environment variables
-    const proxy: string = process.env.HTTPS_PROXY as string;
-    fetchOptions.agent = new HttpsProxyAgent.HttpsProxyAgent(proxy);
+  if (process.env.HTTPS_PROXY !== undefined) {
+    fetchOptions.agent = new HttpsProxyAgent(process.env.HTTPS_PROXY);
   }
 
-  // Check if Proxy is set http and `fetchOptions.agent` was not already set for https
-  if ("HTTP_PROXY" in process.env && fetchOptions.agent === undefined) {
-    // Create the proxy from the environment variables
-    const proxy: string = process.env.HTTP_PROXY as string;
-    fetchOptions.agent = new HttpsProxyAgent.HttpsProxyAgent(proxy);
+  // set http_proxy if https_proxy wasn't already set
+  if (
+    process.env.HTTP_PROXY !== undefined &&
+    fetchOptions.agent === undefined
+  ) {
+    fetchOptions.agent = new HttpsProxyAgent(process.env.HTTP_PROXY);
   }
 
-  // Fetch the url
   const response = await fetch(url, fetchOptions);
 
   if (response.ok && response.body !== null) {
