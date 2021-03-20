@@ -1,5 +1,7 @@
 import fs from "fs";
 import fsExtra from "fs-extra";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import type { RequestInit as FetchOptions } from "node-fetch";
 import path from "path";
 import util from "util";
 
@@ -11,8 +13,23 @@ export async function download(
   const { pipeline } = await import("stream");
   const { default: fetch } = await import("node-fetch");
   const streamPipeline = util.promisify(pipeline);
+  const fetchOptions: FetchOptions = {
+    timeout: timeoutMillis,
+  };
 
-  const response = await fetch(url, { timeout: timeoutMillis });
+  if (process.env.HTTPS_PROXY !== undefined) {
+    fetchOptions.agent = new HttpsProxyAgent(process.env.HTTPS_PROXY);
+  }
+
+  // set http_proxy if https_proxy wasn't already set
+  if (
+    process.env.HTTP_PROXY !== undefined &&
+    fetchOptions.agent === undefined
+  ) {
+    fetchOptions.agent = new HttpsProxyAgent(process.env.HTTP_PROXY);
+  }
+
+  const response = await fetch(url, fetchOptions);
 
   if (response.ok && response.body !== null) {
     await fsExtra.ensureDir(path.dirname(filePath));
